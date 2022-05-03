@@ -9,20 +9,24 @@ const SCROLL_SENSITIVITY = 0.001
 const columns = 1_00
 const rows = 1_00
 const sizeOfCrop = 8
+let selectedSizes = []
 
 function draw() {
   canvas.width = window.innerWidth
   canvas.height = window.innerHeight
 
   // Translate to the canvas centre before zooming - so you'll always zoom on what you're looking directly at
-  ctx.translate(window.innerWidth / 2, window.innerHeight / 2)
+  // ctx.translate(window.innerWidth / 2, window.innerHeight / 2)
   ctx.scale(cameraZoom, cameraZoom)
-  ctx.translate(-window.innerWidth / 2 + cameraOffset.x, -window.innerHeight / 2 + cameraOffset.y)
+  // ctx.translate(-window.innerWidth / 2 + cameraOffset.x, -window.innerHeight / 2 + cameraOffset.y)
+  ctx.translate(cameraOffset.x, cameraOffset.y)
   ctx.clearRect(0, 0, window.innerWidth, window.innerHeight)
 
-  range(0, columns).forEach(positionX => {
-    range(0, rows).forEach(positionY => {
-      ctx.fillStyle = '#ccc'
+  range(0, columns).forEach((positionX) => {
+    range(0, rows).forEach((positionY) => {
+      const hasSelectedSize = selectedSizes.some((data) => data.x === positionX && data.y === positionY)
+
+      ctx.fillStyle = hasSelectedSize ? '#000' : '#ccc'
       ctx.fillRect(positionX * sizeOfCrop, positionY * sizeOfCrop, sizeOfCrop, sizeOfCrop)
     })
   })
@@ -40,6 +44,7 @@ function getEventLocation(e) {
 }
 
 let isDragging = false
+let hasMoved = false
 const dragStart = { x: 0, y: 0 }
 
 function onPointerDown(e) {
@@ -48,14 +53,33 @@ function onPointerDown(e) {
   dragStart.y = getEventLocation(e).y / cameraZoom - cameraOffset.y
 }
 
-function onPointerUp() {
+function onPointerUp(e) {
   isDragging = false
   initialPinchDistance = null
   lastZoom = cameraZoom
+
+  if (!hasMoved) {
+    const mousePos = getEventLocation(e)
+    const mouseX = mousePos.x / cameraZoom - cameraOffset.x
+    const mouseY = mousePos.y / cameraZoom - cameraOffset.y
+
+    console.log({
+      x: Math.floor(mouseX / sizeOfCrop),
+      y: Math.floor(mouseY / sizeOfCrop),
+    })
+
+    selectedSizes.push({
+      x: Math.floor(mouseX / sizeOfCrop),
+      y: Math.floor(mouseY / sizeOfCrop),
+    })
+  } else {
+    hasMoved = false
+  }
 }
 
 function onPointerMove(e) {
   if (isDragging) {
+    hasMoved = true
     cameraOffset.x = getEventLocation(e).x / cameraZoom - dragStart.x
     cameraOffset.y = getEventLocation(e).y / cameraZoom - dragStart.y
   }
@@ -94,14 +118,11 @@ function adjustZoom(zoomAmount, zoomFactor) {
     if (zoomAmount) {
       cameraZoom += zoomAmount
     } else if (zoomFactor) {
-      console.log(zoomFactor)
       cameraZoom = zoomFactor * lastZoom
     }
 
     cameraZoom = Math.min(cameraZoom, MAX_ZOOM)
     cameraZoom = Math.max(cameraZoom, MIN_ZOOM)
-
-    console.log(zoomAmount)
   }
 }
 
@@ -112,12 +133,12 @@ function range(start, end, step = 1) {
 }
 
 canvas.addEventListener('mousedown', onPointerDown)
-canvas.addEventListener('touchstart', e => handleTouch(e, onPointerDown))
+canvas.addEventListener('touchstart', (e) => handleTouch(e, onPointerDown))
 canvas.addEventListener('mouseup', onPointerUp)
-canvas.addEventListener('touchend', e => handleTouch(e, onPointerUp))
+canvas.addEventListener('touchend', (e) => handleTouch(e, onPointerUp))
 canvas.addEventListener('mousemove', onPointerMove)
-canvas.addEventListener('touchmove', e => handleTouch(e, onPointerMove))
-canvas.addEventListener('wheel', e => adjustZoom(e.deltaY * SCROLL_SENSITIVITY))
+canvas.addEventListener('touchmove', (e) => handleTouch(e, onPointerMove))
+canvas.addEventListener('wheel', (e) => adjustZoom(e.deltaY * SCROLL_SENSITIVITY))
 
 // Ready, set, go
 draw()
